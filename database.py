@@ -6,20 +6,25 @@ from datetime import datetime
 import psycopg2
 from dotenv import load_dotenv
 
-# Carrega credenciais: tenta st.secrets (Streamlit Cloud), senão usa .env (local)
+# Carrega .env local (não faz nada se não existir)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-try:
-    import streamlit as st
-    DATABASE_URL = st.secrets.get("DATABASE_URL") or os.getenv("DATABASE_URL")
-except Exception:
-    DATABASE_URL = os.getenv("DATABASE_URL")
+# 1. Tenta variável de ambiente (local via .env)
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# 2. Tenta st.secrets (Streamlit Cloud)
+if not DATABASE_URL:
+    try:
+        import streamlit as st
+        DATABASE_URL = st.secrets["DATABASE_URL"]
+    except Exception:
+        pass
 
 if not DATABASE_URL:
     raise RuntimeError(
-        "Variavel DATABASE_URL nao encontrada. "
-        "Configure o arquivo .env com a connection string do Supabase."
+        "DATABASE_URL nao encontrada. "
+        "Configure o arquivo .env (local) ou Secrets no Streamlit Cloud."
     )
 
 DB_PATH = None
