@@ -1,16 +1,19 @@
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 import sqlite3
-import matplotlib.pyplot as plt
+import os
+from database import DB_PATH, BASE_DIR
 
 def gerar_pdf(mes, usuario):
-    conn = sqlite3.connect("gastos.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT nome, valor FROM gastos WHERE mes = ? AND usuario = ?", (mes, usuario))
     dados = cursor.fetchall()
     conn.close()
 
-    filename = f"relatorio_{usuario}_{mes}.pdf"
+    os.makedirs(os.path.join(BASE_DIR, "pdfs"), exist_ok=True)
+    nome_arquivo = f"relatorio_{usuario}_{mes}.pdf".replace(" ", "_")
+    filename = os.path.join(BASE_DIR, "pdfs", nome_arquivo)
     c = canvas.Canvas(filename, pagesize=A4)
     c.setFont("Helvetica", 14)
     c.drawString(50, 800, f"Relatório de Gastos - {mes} ({usuario})")

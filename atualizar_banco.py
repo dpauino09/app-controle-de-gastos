@@ -1,8 +1,12 @@
 import sqlite3
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH  = os.path.join(BASE_DIR, "gastos.db")
 
 usuario_padrao = input("Digite o nome do usuário padrão para atualizar os registros antigos: ")
 
-conn = sqlite3.connect("gastos.db")
+conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
 cursor.execute("PRAGMA table_info(gastos)")

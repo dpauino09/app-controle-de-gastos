@@ -1,0 +1,18 @@
+# Credenciais — NUNCA enviar para o Git
+.env
+.streamlit/secrets.toml
+
+# Banco local (legado)
+gastos.db
+
+# PDFs gerados
+pdfs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# VS Code
+.vscode/
