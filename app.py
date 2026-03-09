@@ -1071,6 +1071,59 @@ with aba4:
             else:
                 st.warning("⚠️ Selecione um mês válido.")
 
+    st.markdown('<p class="section-title" style="margin-top:28px;">📤 Importar Extrato Bancário (CSV)</p>', unsafe_allow_html=True)
+    st.info("O arquivo CSV do seu banco deve conter pelo menos as colunas: **Data**, **Descrição** e **Valor**.")
+    
+    arquivo_csv = st.file_uploader("Selecione seu arquivo .csv", type=["csv"])
+    
+    if arquivo_csv is not None:
+        try:
+            # Tenta ler o CSV, usando separadores comuns no Brasil
+            df_import = pd.read_csv(arquivo_csv, sep=None, engine='python', encoding='utf-8-sig')
+            
+            # Padroniza nomes de colunas para minúsculas
+            df_import.columns = [c.strip().lower() for c in df_import.columns]
+            
+            # Buscar colunas equivalentes
+            col_data = next((c for c in df_import.columns if 'data' in c), None)
+            col_desc = next((c for c in df_import.columns if 'descri' in c or 'hist' in c or 'nome' in c), None)
+            col_valor = next((c for c in df_import.columns if 'valor' in c or 'quantia' in c), None)
+            
+            if col_data and col_desc and col_valor:
+                st.success(f"✅ Colunas identificadas automaticamente! ({col_data}, {col_desc}, {col_valor})")
+                
+                # Input para o mês destino
+                mes_destino = st.selectbox("Em qual mês/ano deseja lançar esses gastos?", MESES, index=datetime.now().month - 1, key="mes_import_csv")
+                ano_destino = st.number_input("Ano", min_value=2000, value=datetime.now().year, key="ano_import_csv")
+                
+                if st.button("🚀 Processar Importação", type="primary"):
+                    mes_formatado = f"{mes_destino} {ano_destino}"
+                    gastos_importados = 0
+                    
+                    for _, row in df_import.iterrows():
+                        try:
+                            # Converte valor para float (lidando com R$, vírgulas, etc)
+                            val_str = str(row[col_valor]).replace('R$', '').replace('.', '').replace(',', '.').strip()
+                            if val_str.startswith('-'): # Alguns bancos exportam gastos como negativo
+                                val_str = val_str[1:]
+                            
+                            valor_float = float(val_str)
+                            descricao_str = str(row[col_desc]).strip()
+                            
+                            if valor_float > 0 and descricao_str:
+                                adicionar_gasto(descricao_str, valor_float, mes_formatado, usuario, "Outros")
+                                gastos_importados += 1
+                        except:
+                            continue # Pula linhas inválidas
+                            
+                    st.success(f"🎉 Importação concluída! {gastos_importados} gastos adicionados.")
+                    st.rerun()
+            else:
+                st.error("❌ Não foi possível identificar as colunas (Data, Descrição, Valor) no seu arquivo.")
+                
+        except Exception as e:
+            st.error(f"Erro ao processar arquivo: {e}")
+
     st.markdown('<p class="section-title" style="margin-top:20px;">☁️ Informações do Banco</p>', unsafe_allow_html=True)
     st.info("ℹ️ O banco de dados está hospedado no Supabase (nuvem). Não são necessárias migrações manuais.", icon="☁️")
 
