@@ -255,9 +255,15 @@ st.sidebar.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Resumo financeiro na sidebar
-_total_gastos_sb = calcular_total_geral(usuario)
-_total_receitas_sb = calcular_total_receitas(usuario)
+# Resumo financeiro na sidebar (mês atual)
+_mes_atual_sb_nome = MESES[datetime.now().month - 1]
+_mes_atual_sb = f"{_mes_atual_sb_nome} {datetime.now().year}"
+_gastos_sb_lista = listar_gastos_por_mes(_mes_atual_sb, usuario)
+_total_gastos_sb = sum(g[2] for g in _gastos_sb_lista)
+
+_receitas_sb_lista = listar_receitas_por_mes(_mes_atual_sb, usuario)
+_total_receitas_sb = sum(r[2] for r in _receitas_sb_lista)
+
 _saldo_sb = _total_receitas_sb - _total_gastos_sb
 _saldo_cor = "#00C896" if _saldo_sb >= 0 else "#FF4B4B"
 _saldo_bg  = "#1A2E26" if _saldo_sb >= 0 else "#2E1A1A"
@@ -265,17 +271,17 @@ _saldo_border = "#00C89640" if _saldo_sb >= 0 else "#FF4B4B40"
 st.sidebar.markdown(f"""
 <div style="display:flex;gap:8px;margin-bottom:10px;">
   <div style="flex:1;background:#1A2E26;border:1px solid #00C89640;border-radius:10px;padding:10px;text-align:center;">
-    <div style="font-size:0.65rem;color:#00C896;font-weight:600;text-transform:uppercase;">💵 Receitas</div>
+    <div style="font-size:0.65rem;color:#00C896;font-weight:600;text-transform:uppercase;">💵 Receitas ({_mes_atual_sb_nome})</div>
     <div style="font-size:1rem;font-weight:700;color:#F0F2F6;">R$ {_total_receitas_sb:,.2f}</div>
   </div>
   <div style="flex:1;background:#2E1A1A;border:1px solid #FF4B4B40;border-radius:10px;padding:10px;text-align:center;">
-    <div style="font-size:0.65rem;color:#FF6B6B;font-weight:600;text-transform:uppercase;">💸 Gastos</div>
+    <div style="font-size:0.65rem;color:#FF6B6B;font-weight:600;text-transform:uppercase;">💸 Gastos ({_mes_atual_sb_nome})</div>
     <div style="font-size:1rem;font-weight:700;color:#F0F2F6;">R$ {_total_gastos_sb:,.2f}</div>
   </div>
 </div>
 <div style="background:{_saldo_bg};border:1px solid {_saldo_border};border-radius:10px;
             padding:12px 16px;text-align:center;margin-bottom:12px;">
-  <div style="font-size:0.7rem;color:{_saldo_cor};font-weight:600;text-transform:uppercase;">💰 Saldo</div>
+  <div style="font-size:0.7rem;color:{_saldo_cor};font-weight:600;text-transform:uppercase;">💰 Saldo ({_mes_atual_sb_nome})</div>
   <div style="font-size:1.5rem;font-weight:700;color:{_saldo_cor};">R$ {_saldo_sb:,.2f}</div>
 </div>
 """, unsafe_allow_html=True)
@@ -719,7 +725,7 @@ with aba3:
         col1, col2 = st.columns(2)
         with col1:
             desc_conta   = st.text_input("Descrição (ex: Maria, Aluguel)")
-            valor_total  = st.number_input("Valor total (R$)", min_value=0.0, step=10.0, format="%.2f")
+            valor_parcela = st.number_input("Valor por parcela (R$)", min_value=0.0, step=10.0, format="%.2f")
         with col2:
             num_parcelas = st.number_input("Número de parcelas", min_value=1, max_value=360, step=1, value=1)
             dia_venc     = st.number_input("Dia de vencimento", min_value=1, max_value=31, step=1, value=10)
@@ -729,10 +735,9 @@ with aba3:
         if enviar_conta:
             if not desc_conta.strip():
                 st.warning("⚠️ Informe a descrição da conta.")
-            elif valor_total <= 0:
-                st.warning("⚠️ O valor total deve ser maior que zero.")
+            elif valor_parcela <= 0:
+                st.warning("⚠️ O valor da parcela deve ser maior que zero.")
             else:
-                valor_parcela = round(valor_total / num_parcelas, 2)
                 adicionar_contas_parceladas(
                     desc_conta.strip(), valor_parcela,
                     int(num_parcelas), int(dia_venc),
