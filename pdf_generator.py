@@ -1,15 +1,12 @@
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
-import sqlite3
 import os
-from database import DB_PATH, BASE_DIR
+from database import BASE_DIR, listar_gastos_por_mes
 
 def gerar_pdf(mes, usuario):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT nome, valor FROM gastos WHERE mes = ? AND usuario = ?", (mes, usuario))
-    dados = cursor.fetchall()
-    conn.close()
+    gastos = listar_gastos_por_mes(mes, usuario)
+    dados = [(g[1], g[2]) for g in gastos]
+
 
     os.makedirs(os.path.join(BASE_DIR, "pdfs"), exist_ok=True)
     nome_arquivo = f"relatorio_{usuario}_{mes}.pdf".replace(" ", "_")

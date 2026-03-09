@@ -465,14 +465,6 @@ with aba2:
                     excluir_conta_a_vencer(row["ID"])
                 st.rerun()
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.download_button(
-        label="📤 Exportar para CSV",
-        data=df_exibir.to_csv(index=False).encode("utf-8"),
-        file_name="gastos.csv",
-        mime="text/csv"
-    )
-
     st.markdown('<p class="section-title" style="margin-top:20px;">📊 Todos os gastos por mês (Gastos + Contas)</p>', unsafe_allow_html=True)
     
     # Coletar também as contas a vencer do usuário para unificar o gráfico
