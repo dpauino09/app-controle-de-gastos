@@ -442,14 +442,60 @@ with aba2:
         mime="text/csv"
     )
 
-    st.markdown('<p class="section-title" style="margin-top:20px;">📊 Gastos por mês</p>', unsafe_allow_html=True)
-    if not df.empty:
-        df_chart = df.groupby("Mês")["Valor"].sum().reset_index()
+    st.markdown('<p class="section-title" style="margin-top:20px;">📊 Todos os gastos por mês (Gastos + Contas)</p>', unsafe_allow_html=True)
+    
+    # Coletar também as contas a vencer do usuário para unificar o gráfico
+    contas_usuario = listar_contas_a_vencer(usuario)
+    df_contas = pd.DataFrame(contas_usuario, columns=["ID", "Descrição", "Valor", "Parcela Num", "Parcela Total", "Dia", "Mês", "Status"])
+    
+    # Criar um DataFrame unificado para o gráfico
+    df_grafico = df.copy()
+    df_grafico["Tipo"] = "Gasto Normal/Fixo"
+    
+    df_contas_grafico = pd.DataFrame()
+    if not df_contas.empty:
+        df_contas_grafico = df_contas[["Descrição", "Valor", "Mês"]].copy()
+        df_contas_grafico.rename(columns={"Descrição": "Nome"}, inplace=True)
+        df_contas_grafico["Tipo"] = "Conta Parcelada"
+        
+    df_unificado = pd.concat([df_grafico, df_contas_grafico], ignore_index=True)
+    
+    if not df_unificado.empty:
+        # Agrupar por Mês e Tipo
+        df_chart = df_unificado.groupby(["Mês", "Tipo"])["Valor"].sum().reset_index()
+        
+        # Manter a ordem correta dos meses
         df_chart["ordem"] = df_chart["Mês"].apply(
             lambda m: next((i for i, nome_mes in enumerate(MESES) if m.startswith(nome_mes)), 99)
         )
-        df_chart = df_chart.sort_values("ordem").drop(columns="ordem").set_index("Mês")
-        st.bar_chart(df_chart, color="#FF6B6B")
+        df_chart = df_chart.sort_values("ordem")
+        
+        # Usar o Plotly Express para criar um gráfico de barras empilhadas mais vistoso
+        import plotly.express as px
+        
+        fig = px.bar(
+            df_chart, 
+            x="Mês", 
+            y="Valor", 
+            color="Tipo", 
+            barmode="stack",
+            color_discrete_map={"Gasto Normal/Fixo": "#FF6B6B", "Conta Parcelada": "#FFD700"},
+            labels={"Valor": "Total (R$)", "Tipo": "Categoria"}
+        )
+        fig.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font_color='#F0F2F6',
+            margin=dict(l=20, r=20, t=20, b=20),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
+        )
+        st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("ℹ️ Sem dados para exibir no gráfico.")
 
