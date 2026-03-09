@@ -652,8 +652,13 @@ with aba_plan:
     # ── dados do mês selecionado ──
     _rec_mes   = listar_receitas_por_mes(mes_plan, usuario)
     _gast_mes  = listar_gastos_por_mes(mes_plan, usuario)
+    
+    # Adicionar contas a vencer (parcelas) ao planejamento
+    contas_usuario = listar_contas_a_vencer(usuario)
+    contas_mes = [c for c in contas_usuario if c[6] == mes_plan]
+    
     _total_rec_m  = sum(r[2] for r in _rec_mes)
-    _total_gast_m = sum(g[2] for g in _gast_mes)
+    _total_gast_m = sum(g[2] for g in _gast_mes) + sum(c[2] for c in contas_mes)
     _saldo_m      = _total_rec_m - _total_gast_m
 
     # ── cards de resumo do mês ──
@@ -836,14 +841,27 @@ with aba3:
     if not contas:
         st.info("ℹ️ Nenhuma conta cadastrada ainda.")
     else:
-        # totais resumo
-        total_pendente = sum(c[2] for c in contas if c[7] == "pendente")
-        total_pago     = sum(c[2] for c in contas if c[7] == "pago")
+        # filtra mês
+        meses_com_contas = sorted(set(c[6] for c in contas))
+        # Pega o mês atual como padrão do dropdown, se houver conta nele
+        _mes_atual_contas = f"{MESES[hoje.month - 1]} {hoje.year}"
+        _idx_padrao_conta = meses_com_contas.index(_mes_atual_contas) + 1 if _mes_atual_contas in meses_com_contas else 0
+        
+        filtro_mes_conta = st.selectbox("Filtrar por mês", ["Todos"] + meses_com_contas, index=_idx_padrao_conta)
+
+        contas_filtradas = [
+            c for c in contas
+            if filtro_mes_conta == "Todos" or c[6] == filtro_mes_conta
+        ]
+        
+        # totais resumo (agora usa as contas_filtradas em vez de todas)
+        total_pendente = sum(c[2] for c in contas_filtradas if c[7] == "pendente")
+        total_pago     = sum(c[2] for c in contas_filtradas if c[7] == "pago")
         c1, c2, c3 = st.columns(3)
         c1.markdown(f"""
         <div class="metric-card">
-          <div class="label">📋 Total parcelas</div>
-          <div class="value">{len(contas)}</div>
+          <div class="label">📋 Total parcelas {'(' + filtro_mes_conta + ')' if filtro_mes_conta != 'Todos' else ''}</div>
+          <div class="value">{len(contas_filtradas)}</div>
         </div>""", unsafe_allow_html=True)
         c2.markdown(f"""
         <div class="metric-card" style="border-color:#FF6B6B40;">
@@ -857,15 +875,6 @@ with aba3:
         </div>""", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
-
-        # filtra mês
-        meses_com_contas = sorted(set(c[6] for c in contas))
-        filtro_mes_conta = st.selectbox("Filtrar por mês", ["Todos"] + meses_com_contas)
-
-        contas_filtradas = [
-            c for c in contas
-            if filtro_mes_conta == "Todos" or c[6] == filtro_mes_conta
-        ]
 
         for conta in contas_filtradas:
             cid, descricao, valor, parc_num, parc_total, dia, mes_v, status = conta
