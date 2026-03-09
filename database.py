@@ -92,8 +92,20 @@ def init_db():
             dia_vencimento  INTEGER,
             mes_vencimento  TEXT,
             status          TEXT DEFAULT 'pendente',
-            usuario         TEXT
+            usuario         TEXT,
+            categoria       TEXT DEFAULT 'Outros'
         )
+    """)
+    cur.execute("""
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='contas_a_vencer' AND column_name='categoria'
+          ) THEN
+            ALTER TABLE contas_a_vencer ADD COLUMN categoria TEXT DEFAULT 'Outros';
+          END IF;
+        END $$;
     """)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS receitas (
@@ -241,7 +253,7 @@ MESES_ANO = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
              'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 
-def adicionar_contas_parceladas(descricao, valor_parcela, num_parcelas, dia_vencimento, mes_inicio, usuario):
+def adicionar_contas_parceladas(descricao, valor_parcela, num_parcelas, dia_vencimento, mes_inicio, usuario, categoria="Outros"):
     try:
         indice_inicial = MESES_ANO.index(mes_inicio)
     except ValueError:
@@ -257,10 +269,10 @@ def adicionar_contas_parceladas(descricao, valor_parcela, num_parcelas, dia_venc
         cur.execute("""
             INSERT INTO contas_a_vencer
             (grupo_id, descricao, valor, parcela_num, parcela_total,
-             dia_vencimento, mes_vencimento, status, usuario)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'pendente', %s)
+             dia_vencimento, mes_vencimento, status, usuario, categoria)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'pendente', %s, %s)
         """, (grupo, descricao, valor_parcela, i + 1, int(num_parcelas),
-              int(dia_vencimento), mes_venc, usuario))
+              int(dia_vencimento), mes_venc, usuario, categoria))
     conn.commit()
     cur.close(); conn.close()
 
@@ -270,7 +282,7 @@ def listar_contas_a_vencer(usuario):
     cur = conn.cursor()
     cur.execute("""
         SELECT id, descricao, valor, parcela_num, parcela_total,
-               dia_vencimento, mes_vencimento, status
+               dia_vencimento, mes_vencimento, status, categoria
         FROM contas_a_vencer
         WHERE usuario = %s
         ORDER BY
@@ -295,6 +307,16 @@ def marcar_conta_status(id, status):
     conn = _conn()
     cur = conn.cursor()
     cur.execute("UPDATE contas_a_vencer SET status = %s WHERE id = %s", (status, id))
+    conn.commit()
+    cur.close(); conn.close()
+
+def atualizar_conta_parcelada(id, descricao, valor, dia_vencimento, mes_vencimento, categoria):
+    conn = _conn()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE contas_a_vencer SET descricao = %s, valor = %s, dia_vencimento = %s, mes_vencimento = %s, categoria = %s WHERE id = %s",
+        (descricao, valor, dia_vencimento, mes_vencimento, categoria, id)
+    )
     conn.commit()
     cur.close(); conn.close()
 

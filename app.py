@@ -369,7 +369,18 @@ with aba_dash:
     with col_chart:
         st.markdown('<p class="section-title" style="font-size:0.95rem;">🍕 Gastos por Categoria</p>', unsafe_allow_html=True)
         # Preparando DataFrame de categorias
-        df_mes_atual = df[df["Mês"] == mes_atual_str] if not df.empty else pd.DataFrame()
+        df_mes_atual = df[df["Mês"] == mes_atual_str].copy() if not df.empty else pd.DataFrame(columns=["Categoria", "Valor"])
+        
+        # Adicionar contas a vencer do mês ao gráfico de pizza
+        contas_usuario = listar_contas_a_vencer(usuario)
+        contas_mes_atual = [
+            {"Categoria": c[8], "Valor": c[2]} 
+            for c in contas_usuario 
+            if c[6] == mes_atual_str and len(c) > 8
+        ]
+        if contas_mes_atual:
+            df_contas_mes = pd.DataFrame(contas_mes_atual)
+            df_mes_atual = pd.concat([df_mes_atual, df_contas_mes], ignore_index=True)
         
         if not df_mes_atual.empty:
             df_pizza = df_mes_atual.groupby("Categoria")["Valor"].sum().reset_index()
@@ -490,6 +501,27 @@ def modal_editar_gasto(gasto_id, nome_atual, valor_atual, mes_atual, categoria_a
         st.success("Gasto atualizado!")
         st.rerun()
 
+# ✏️ Definição do Modal de Edição de Conta a Vencer
+@st.dialog("Editar Conta (Parcela)")
+def modal_editar_conta(conta_id, descricao_atual, valor_atual, dia_atual, mes_atual, categoria_atual):
+    st.markdown(f"Editando: **{descricao_atual}**")
+    novo_desc = st.text_input("Descrição", value=descricao_atual)
+    novo_valor = st.number_input("Valor da Parcela (R$)", min_value=0.0, value=float(valor_atual), format="%.2f")
+    nova_categoria = st.selectbox("Categoria", CATEGORIAS_GASTOS, index=CATEGORIAS_GASTOS.index(categoria_atual) if categoria_atual in CATEGORIAS_GASTOS else CATEGORIAS_GASTOS.index("Outros"))
+    
+    col_d, col_m = st.columns(2)
+    with col_d:
+        novo_dia = st.number_input("Dia Fixo de Vencimento", min_value=1, max_value=31, value=int(dia_atual))
+    with col_m:
+        novo_mes = st.selectbox("Mês de Vencimento", MESES, index=MESES.index(mes_atual.split()[0]) if mes_atual.split()[0] in MESES else 0)
+        novo_mes_str = f"{novo_mes} {mes_atual.split()[1] if len(mes_atual.split()) > 1 else datetime.now().year}"
+
+    if st.button("💾 Salvar Alterações", type="primary"):
+        from database import atualizar_conta_parcelada
+        atualizar_conta_parcelada(conta_id, novo_desc, novo_valor, novo_dia, novo_mes_str, nova_categoria)
+        st.success("Conta atualizada!")
+        st.rerun()
+
 # 📊 Aba de Visualização
 with aba2:
     st.markdown('<p class="section-title">🔎 Filtrar gastos por mês</p>', unsafe_allow_html=True)
@@ -580,7 +612,8 @@ with aba2:
                 if c4.button("✏️", key=f"edit_{tipo}_{row['ID']}", help="Editar Gasto"):
                     modal_editar_gasto(row['ID'], row['Nome'], row['Valor'], row['Mês'], row.get('Categoria', 'Outros'))
             else:
-                c4.markdown("") # Placeholder vazio para manter o layout
+                if c4.button("✏️", key=f"edit_conta_{row['ID']}", help="Editar Conta"):
+                    modal_editar_conta(row['ID'], row['Nome'], row['Valor'], row.get('Dia', 10), row['Mês'], row.get('Categoria', 'Outros'))
                 
             # Botão de Excluir
             if c5.button("🗑️", key=f"del_{tipo}_{row['ID']}", help=f"Excluir '{row['Nome']}'"):
@@ -594,7 +627,7 @@ with aba2:
     
     # Coletar também as contas a vencer do usuário para unificar o gráfico
     contas_usuario = listar_contas_a_vencer(usuario)
-    df_contas = pd.DataFrame(contas_usuario, columns=["ID", "Descrição", "Valor", "Parcela Num", "Parcela Total", "Dia", "Mês", "Status"])
+    df_contas = pd.DataFrame(contas_usuario, columns=["ID", "Descrição", "Valor", "Parcela Num", "Parcela Total", "Dia", "Mês", "Status", "Categoria"])
     
     # Criar um DataFrame unificado para o gráfico
     df_grafico = df.copy()
@@ -924,6 +957,7 @@ with aba3:
         col1, col2 = st.columns(2)
         with col1:
             desc_conta   = st.text_input("Descrição (ex: Maria, Aluguel)")
+            categoria_conta = st.selectbox("Categoria (Parcelada)", CATEGORIAS_GASTOS)
             valor_parcela = st.number_input("Valor por parcela (R$)", min_value=0.0, step=10.0, format="%.2f")
         with col2:
             num_parcelas = st.number_input("Número de parcelas", min_value=1, max_value=360, step=1, value=1)
@@ -940,7 +974,7 @@ with aba3:
                 adicionar_contas_parceladas(
                     desc_conta.strip(), valor_parcela,
                     int(num_parcelas), int(dia_venc),
-                    mes_inicio_conta, usuario
+                    mes_inicio_conta, usuario, categoria_conta
                 )
                 st.success(
                     f"✅ '{desc_conta}' adicionada! "
@@ -994,7 +1028,7 @@ with aba3:
         st.markdown("<br>", unsafe_allow_html=True)
 
         for conta in contas_filtradas:
-            cid, descricao, valor, parc_num, parc_total, dia, mes_v, status = conta
+            cid, descricao, valor, parc_num, parc_total, dia, mes_v, status, categoria = conta
 
             # calcula urgência
             mes_nome = mes_v.split()[0]
@@ -1009,8 +1043,8 @@ with aba3:
                 dias_restantes = 999
 
             if status == "pago":
-                border = "#00C896"
-                badge  = '<span style="background:#00C89622;color:#00C896;padding:2px 10px;border-radius:20px;font-size:0.75rem;font-weight:600;">✅ Pago</span>'
+                border = "#3B82F6"
+                badge  = '<span style="background:#3B82F622;color:#3B82F6;padding:2px 10px;border-radius:20px;font-size:0.75rem;font-weight:600;">🔵 Pago</span>'
             elif dias_restantes < 0:
                 border = "#FF4B4B"
                 badge  = f'<span style="background:#FF4B4B22;color:#FF4B4B;padding:2px 10px;border-radius:20px;font-size:0.75rem;font-weight:600;">🔴 Vencida há {abs(dias_restantes)}d</span>'
@@ -1023,12 +1057,12 @@ with aba3:
 
             parcela_txt = f"Parcela {parc_num}/{parc_total}" if parc_total > 1 else "À vista"
 
-            b1, b2, b3 = st.columns([6, 2, 1])
+            b1, b2, b3, b4 = st.columns([5, 1, 2, 1])
             with b1:
                 st.markdown(f"""
                 <div style="background:#1A1D2E; border-left:4px solid {border}; border-radius:8px; padding:12px 16px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                   <div>
-                    <div style="font-weight:600; color:#F0F2F6; font-size:1.05rem; margin-bottom:4px;">{descricao}</div>
+                    <div style="font-weight:600; color:#F0F2F6; font-size:1.05rem; margin-bottom:4px;">{descricao} <span style="font-size:0.7rem; color:#7A7F9A; background:#2C3050; padding:2px 6px; border-radius:8px; margin-left:6px;">{categoria}</span></div>
                     <div style="color:#7A7F9A; font-size:0.85rem;"><i class="fa-regular fa-calendar" style="margin-right:4px;"></i>Vence dia <b style="color:#C0C4D6;">{dia:02d}</b> &bull; {mes_v}</div>
                   </div>
                   <div style="text-align:right;">
@@ -1038,15 +1072,18 @@ with aba3:
                 </div>""", unsafe_allow_html=True)
                 
             with b2:
+                if st.button("✏️", key=f"edit_aba3_{cid}", help="Editar Parcela", use_container_width=True):
+                    modal_editar_conta(cid, descricao, valor, dia, mes_v, categoria)
+            with b3:
                 if status == "pendente":
-                    if st.button("✅ Pago", key=f"pay_conta_aba3_{cid}", help="Marcar como Pago", use_container_width=True):
+                    if st.button("✅ Pago", key=f"pay_conta_aba3_{cid}", help="Confirmar Pagamento", use_container_width=True):
                         marcar_conta_status(cid, "pago")
                         st.rerun()
                 elif status == "pago":
-                    if st.button("⏳ Pendente", key=f"pend_conta_aba3_{cid}", help="Desfazer e marcar como Pendente", use_container_width=True):
+                    if st.button("↩️ Reverter", key=f"pend_conta_aba3_{cid}", help="Desfazer e retornar para Pendente", use_container_width=True):
                         marcar_conta_status(cid, "pendente")
                         st.rerun()
-            with b3:
+            with b4:
                 if st.button("🗑️", key=f"del_conta_aba3_{cid}", help="Excluir Parcela", use_container_width=True):
                     excluir_conta_a_vencer(cid)
                     st.rerun()
