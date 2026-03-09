@@ -1039,15 +1039,15 @@ with aba3:
                 
             with b2:
                 if status == "pendente":
-                    if st.button("✅ Pago", key=f"pay_conta_{cid}", help="Marcar como Pago", use_container_width=True):
+                    if st.button("✅ Pago", key=f"pay_conta_aba3_{cid}", help="Marcar como Pago", use_container_width=True):
                         marcar_conta_status(cid, "pago")
                         st.rerun()
                 elif status == "pago":
-                    if st.button("⏳ Pendente", key=f"pend_conta_{cid}", help="Desfazer e marcar como Pendente", use_container_width=True):
+                    if st.button("⏳ Pendente", key=f"pend_conta_aba3_{cid}", help="Desfazer e marcar como Pendente", use_container_width=True):
                         marcar_conta_status(cid, "pendente")
                         st.rerun()
             with b3:
-                if st.button("🗑️", key=f"del_conta_{cid}", help="Excluir Parcela", use_container_width=True):
+                if st.button("🗑️", key=f"del_conta_aba3_{cid}", help="Excluir Parcela", use_container_width=True):
                     excluir_conta_a_vencer(cid)
                     st.rerun()
 
