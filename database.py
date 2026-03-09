@@ -66,8 +66,20 @@ def init_db():
             nome     TEXT,
             valor    REAL,
             mes      TEXT,
-            usuario  TEXT
+            usuario  TEXT,
+            categoria TEXT DEFAULT 'Outros'
         )
+    """)
+    cur.execute("""
+        DO $$
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='gastos' AND column_name='categoria'
+          ) THEN
+            ALTER TABLE gastos ADD COLUMN categoria TEXT DEFAULT 'Outros';
+          END IF;
+        END $$;
     """)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS contas_a_vencer (
@@ -142,12 +154,22 @@ def eh_admin(email: str) -> bool:
     return bool(row and row[0])
 
 
-def adicionar_gasto(nome, valor, mes, usuario):
+def adicionar_gasto(nome, valor, mes, usuario, categoria="Outros"):
     conn = _conn()
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO gastos (nome, valor, mes, usuario) VALUES (%s, %s, %s, %s)",
-        (nome, valor, mes, usuario)
+        "INSERT INTO gastos (nome, valor, mes, usuario, categoria) VALUES (%s, %s, %s, %s, %s)",
+        (nome, valor, mes, usuario, categoria)
+    )
+    conn.commit()
+    cur.close(); conn.close()
+    
+def atualizar_gasto(id, nome, valor, mes, categoria):
+    conn = _conn()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE gastos SET nome = %s, valor = %s, mes = %s, categoria = %s WHERE id = %s",
+        (nome, valor, mes, categoria, id)
     )
     conn.commit()
     cur.close(); conn.close()
@@ -156,7 +178,7 @@ def adicionar_gasto(nome, valor, mes, usuario):
 def listar_gastos_por_usuario(usuario):
     conn = _conn()
     cur = conn.cursor()
-    cur.execute("SELECT id, nome, valor, mes FROM gastos WHERE usuario = %s", (usuario,))
+    cur.execute("SELECT id, nome, valor, mes, categoria FROM gastos WHERE usuario = %s", (usuario,))
     dados = cur.fetchall()
     cur.close(); conn.close()
     return dados
@@ -166,7 +188,7 @@ def listar_gastos_por_mes(mes, usuario):
     conn = _conn()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, nome, valor, mes FROM gastos WHERE mes = %s AND usuario = %s",
+        "SELECT id, nome, valor, mes, categoria FROM gastos WHERE mes = %s AND usuario = %s",
         (mes, usuario)
     )
     dados = cur.fetchall()
@@ -191,7 +213,7 @@ def excluir_gasto(id):
     cur.close(); conn.close()
 
 
-def adicionar_gasto_recorrente(nome, valor, meses, mes_inicial, usuario):
+def adicionar_gasto_recorrente(nome, valor, meses, mes_inicial, usuario, categoria="Outros"):
     meses_ano = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
     try:
@@ -206,8 +228,8 @@ def adicionar_gasto_recorrente(nome, valor, meses, mes_inicial, usuario):
         ano = ano_atual + ((indice_inicial + i) // 12)
         mes_destino = f"{meses_ano[indice_mes]} {ano}"
         cur.execute(
-            "INSERT INTO gastos (nome, valor, mes, usuario) VALUES (%s, %s, %s, %s)",
-            (f"{nome} (fixo)", valor, mes_destino, usuario)
+            "INSERT INTO gastos (nome, valor, mes, usuario, categoria) VALUES (%s, %s, %s, %s, %s)",
+            (f"{nome} (fixo)", valor, mes_destino, usuario, categoria)
         )
     conn.commit()
     cur.close(); conn.close()
@@ -370,6 +392,16 @@ def adicionar_receita(descricao: str, valor: float, tipo: str, mes: str, usuario
     cur.execute(
         "INSERT INTO receitas (descricao, valor, tipo, mes, usuario) VALUES (%s, %s, %s, %s, %s)",
         (descricao, valor, tipo, mes, usuario)
+    )
+    conn.commit()
+    cur.close(); conn.close()
+
+def atualizar_receita(id: int, descricao: str, valor: float, tipo: str, mes: str) -> None:
+    conn = _conn()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE receitas SET descricao = %s, valor = %s, tipo = %s, mes = %s WHERE id = %s",
+        (descricao, valor, tipo, mes, id)
     )
     conn.commit()
     cur.close(); conn.close()

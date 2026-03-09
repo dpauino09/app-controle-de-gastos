@@ -38,6 +38,11 @@ MESES = [
     "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ]
 
+CATEGORIAS_GASTOS = [
+    "Alimentação", "Moradia", "Transporte", "Saúde", 
+    "Lazer", "Educação", "Vestuário", "Outros"
+]
+
 init_db()
 st.set_page_config(
     page_title="Controle de Gastos",
@@ -317,20 +322,115 @@ if eh_admin(usuario):
 
 # 🔄 Carrega os dados
 dados = listar_gastos_por_usuario(usuario)
-df = pd.DataFrame(dados, columns=["ID", "Nome", "Valor", "Mês"])
+df = pd.DataFrame(dados, columns=["ID", "Nome", "Valor", "Mês", "Categoria"])
 
 # 🗂️ Interface com abas
 if eh_admin(usuario):
-    aba1, aba2, aba_rec, aba_plan, aba3, aba4, aba5 = st.tabs([
-        "📥 Adicionar", "📊 Visualizar", "💵 Receitas",
+    aba_dash, aba1, aba2, aba_rec, aba_plan, aba3, aba4, aba5 = st.tabs([
+        "📱 Visão Geral", "📥 Adicionar", "📊 Visualizar", "💵 Receitas",
         "📈 Planejamento", "📅 Contas a Vencer", "🛠️ Configurações", "👑 Admin"
     ])
 else:
-    aba1, aba2, aba_rec, aba_plan, aba3, aba4 = st.tabs([
-        "📥 Adicionar", "📊 Visualizar", "💵 Receitas",
+    aba_dash, aba1, aba2, aba_rec, aba_plan, aba3, aba4 = st.tabs([
+        "📱 Visão Geral", "📥 Adicionar", "📊 Visualizar", "💵 Receitas",
         "📈 Planejamento", "📅 Contas a Vencer", "🛠️ Configurações"
     ])
     aba5 = None
+
+# 📱 Aba de Visão Geral (Dashboard)
+with aba_dash:
+    st.markdown('<p class="section-title">✨ Resumo do Mês Atual</p>', unsafe_allow_html=True)
+    
+    # Busca dados do mês atual para preencher o Dashboard
+    mes_atual_str = f"{MESES[datetime.now().month - 1]} {datetime.now().year}"
+    
+    # Cards de métricas principais do Mês
+    c1, c2, c3 = st.columns(3)
+    c1.markdown(f"""
+    <div class="metric-card">
+      <div class="label">💳 Total de Receitas</div>
+      <div class="value" style="color:#00C896;">R$ {_total_receitas_sb:,.2f}</div>
+    </div>""", unsafe_allow_html=True)
+    c2.markdown(f"""
+    <div class="metric-card">
+      <div class="label">💸 Total de Gastos</div>
+      <div class="value" style="color:#FF4B4B;">R$ {_total_gastos_sb:,.2f}</div>
+    </div>""", unsafe_allow_html=True)
+    c3.markdown(f"""
+    <div class="metric-card" style="border-color:{_saldo_border};">
+      <div class="label">💰 Saldo Líquido</div>
+      <div class="value" style="color:{_saldo_cor};">R$ {_saldo_sb:,.2f}</div>
+    </div>""", unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col_chart, col_bills = st.columns([2, 1])
+    
+    with col_chart:
+        st.markdown('<p class="section-title" style="font-size:0.95rem;">🍕 Gastos por Categoria</p>', unsafe_allow_html=True)
+        # Preparando DataFrame de categorias
+        df_mes_atual = df[df["Mês"] == mes_atual_str] if not df.empty else pd.DataFrame()
+        
+        if not df_mes_atual.empty:
+            df_pizza = df_mes_atual.groupby("Categoria")["Valor"].sum().reset_index()
+            import plotly.express as px
+            fig_pie = px.pie(
+                df_pizza, 
+                values="Valor", 
+                names="Categoria", 
+                hole=0.4,
+                color_discrete_sequence=px.colors.qualitative.Pastel
+            )
+            fig_pie.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font_color='#F0F2F6',
+                margin=dict(l=10, r=10, t=10, b=10),
+                showlegend=True
+            )
+            # Ocultando textos pequenos na pizza para ficar clean
+            fig_pie.update_traces(textposition='inside', textinfo='percent')
+            st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.info("ℹ️ Nenhum gasto registrado neste mês para gerar o gráfico.")
+
+    with col_bills:
+        st.markdown('<p class="section-title" style="font-size:0.95rem;">⏰ Próximas Contas</p>', unsafe_allow_html=True)
+        # Filtrar contas do mês atual pendentes, ordenar por dia
+        todas_contas_dash = listar_contas_a_vencer(usuario)
+        contas_proximas = [c for c in todas_contas_dash if c[6] == mes_atual_str and c[7] == "pendente"]
+        contas_proximas = sorted(contas_proximas, key=lambda x: x[5])[:3] # Pegar as 3 primeiras
+        
+        if not contas_proximas:
+            st.success("✅ Tudo limpo! Nenhuma conta pendente para os próximos dias.")
+        else:
+            for c in contas_proximas:
+                hoje_d = datetime.now()
+                dia_v = c[5]
+                try:
+                    data_v = datetime(hoje_d.year, hoje_d.month, min(dia_v, 28))
+                    dias_rest = (data_v - hoje_d).days
+                    if dias_rest < 0: txt_dias = f"Vencida há {abs(dias_rest)}d"
+                    elif dias_rest == 0: txt_dias = "Vence hoje!"
+                    else: txt_dias = f"Vence em {dias_rest}d"
+                except:
+                    txt_dias = f"Dia {dia_v}"
+                    
+                st.markdown(f"""
+                <div style="background:#1A1D2E; border:1px solid #2C3050; border-radius:12px; padding:12px; margin-bottom:10px;">
+                    <div style="font-weight:600; color:#F0F2F6; font-size:0.9rem;">{c[1]}</div>
+                    <div style="display:flex; justify-content:space-between; margin-top:4px; align-items:center;">
+                        <span style="color:#FF4B4B; font-weight:700; font-size:1.1rem;">R$ {c[2]:.2f}</span>
+                        <span style="font-size:0.7rem; color:#FFD700; background:#FFD70022; padding:2px 8px; border-radius:10px;">{txt_dias}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+        st.markdown("""
+        <div style="text-align:center; margin-top:20px;">
+            <span style="color:#7A7F9A; font-size:0.8rem;">Vá para a aba de 'Contas a Vencer' para gerenciar.</span>
+        </div>
+        """, unsafe_allow_html=True)
 
 # 📥 Aba de Adição
 with aba1:
@@ -339,9 +439,10 @@ with aba1:
         col1, col2 = st.columns(2)
         with col1:
             nome = st.text_input("Nome do gasto")
+            categoria = st.selectbox("Categoria", CATEGORIAS_GASTOS)
         with col2:
             valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f")
-        mes = st.selectbox("Mês", MESES, index=datetime.now().month - 1)
+            mes = st.selectbox("Mês", MESES, index=datetime.now().month - 1)
         enviar = st.form_submit_button("➕ Adicionar gasto")
         if enviar:
             if not nome.strip():
@@ -350,7 +451,7 @@ with aba1:
                 st.warning("⚠️ O valor deve ser maior que zero.")
             else:
                 mes_formatado = f"{mes} {datetime.now().year}"
-                adicionar_gasto(nome, valor, mes_formatado, usuario)
+                adicionar_gasto(nome, valor, mes_formatado, usuario, categoria)
                 st.success("✅ Gasto adicionado com sucesso!")
                 st.rerun()
 
@@ -359,6 +460,7 @@ with aba1:
         col1, col2 = st.columns(2)
         with col1:
             nome = st.text_input("Descrição do gasto fixo")
+            categoria_rec = st.selectbox("Categoria (Recorrente)", CATEGORIAS_GASTOS)
             meses = st.number_input("Número de meses", min_value=1, max_value=120, step=1)
         with col2:
             valor = st.number_input("Valor mensal (R$)", min_value=0.0, step=10.0)
@@ -370,7 +472,7 @@ with aba1:
             elif valor <= 0:
                 st.warning("⚠️ O valor mensal deve ser maior que zero.")
             else:
-                adicionar_gasto_recorrente(nome, valor, meses, mes_inicial, usuario)
+                adicionar_gasto_recorrente(nome, valor, meses, mes_inicial, usuario, categoria_rec)
                 st.success(f"✅ Gasto recorrente '{nome}' registrado para {int(meses)} meses a partir de {mes_inicial}!")
 
 # 📊 Aba de Visualização
