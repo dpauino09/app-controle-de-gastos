@@ -1,6 +1,12 @@
 # 💰 Controle de Gastos Profissional
 
-O **Controle de Gastos** é uma aplicação web interativa e completa para registrar, analisar e gerenciar suas finanças pessoais. Desenvolvido em **Python** e impulsionado pelo **Streamlit**, ele fornece uma interface deslumbrante e dinâmica, ideal tanto para uso em desktop quanto pelo celular.
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://app-controle-de-gastos.streamlit.app/)
+
+O **Controle de Gastos** é uma aplicação web interativa e gratuita para registrar, analisar e gerenciar suas finanças pessoais. Desenvolvido em **Python** e impulsionado pelo **Streamlit**, ele fornece uma interface deslumbrante e dinâmica, ideal tanto para uso em desktop quanto pelo celular.
+
+🌟 **Totalmente Gratuito e Disponível na Nuvem!**  
+Você não precisa instalar nada para começar a usar. Basta acessar o link abaixo, criar sua conta (segura e individual) e começar a controlar seus gastos hoje mesmo:
+👉 [**Acessar o App Controle de Gastos**](https://app-controle-de-gastos.streamlit.app/)
 
 ## 🚀 Funcionalidades Principais
 
