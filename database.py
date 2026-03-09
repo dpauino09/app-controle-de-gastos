@@ -192,7 +192,7 @@ def excluir_gasto(id):
 
 
 def adicionar_gasto_recorrente(nome, valor, meses, mes_inicial, usuario):
-    meses_ano = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
+    meses_ano = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
                  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
     try:
         indice_inicial = meses_ano.index(mes_inicial.capitalize())
@@ -213,7 +213,7 @@ def adicionar_gasto_recorrente(nome, valor, meses, mes_inicial, usuario):
     cur.close(); conn.close()
 
 
-MESES_ANO = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
+MESES_ANO = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
              'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 
@@ -252,7 +252,7 @@ def listar_contas_a_vencer(usuario):
         ORDER BY
             CASE split_part(mes_vencimento, ' ', 1)
                 WHEN 'Janeiro'   THEN 1  WHEN 'Fevereiro' THEN 2
-                WHEN 'Marco'     THEN 3  WHEN 'Abril'     THEN 4
+                WHEN 'Março'     THEN 3  WHEN 'Abril'     THEN 4
                 WHEN 'Maio'      THEN 5  WHEN 'Junho'     THEN 6
                 WHEN 'Julho'     THEN 7  WHEN 'Agosto'    THEN 8
                 WHEN 'Setembro'  THEN 9  WHEN 'Outubro'   THEN 10
