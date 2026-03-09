@@ -123,9 +123,11 @@ def usuario_existe(email: str) -> bool:
 def cadastrar_usuario(email: str, senha: str) -> None:
     conn = _conn()
     cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM usuarios")
-    total = cur.fetchone()[0]
-    is_admin = 1 if total == 0 else 0
+    
+    # 🚨 Todos os novos usuários se cadastram com permissão comum (0) por padrão.
+    # Apenas administradores já existentes podem dar permissão de admin pelo painel.
+    is_admin = 0
+    
     cur.execute(
         "INSERT INTO usuarios (email, senha_hash, is_admin) VALUES (%s, %s, %s)",
         (email, _hash_senha(senha), is_admin)
