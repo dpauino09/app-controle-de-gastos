@@ -378,10 +378,26 @@ with aba2:
     st.markdown('<p class="section-title">🔎 Filtrar gastos por mês</p>', unsafe_allow_html=True)
     mes_filtro = st.selectbox("Escolha o mês", ["Todos"] + sorted(df["Mês"].unique()))
     if mes_filtro == "Todos":
-        df_exibir = df
+        df_gastos = df.copy()
     else:
         dados_filtrados = listar_gastos_por_mes(mes_filtro, usuario)
-        df_exibir = pd.DataFrame(dados_filtrados, columns=["ID", "Nome", "Valor", "Mês"])
+        df_gastos = pd.DataFrame(dados_filtrados, columns=["ID", "Nome", "Valor", "Mês"])
+        
+    df_gastos["Tipo"] = "gasto"
+    df_gastos["Status"] = "pago"
+    
+    # Adicionar contas a vencer na lista unificada
+    contas_usuario = listar_contas_a_vencer(usuario)
+    if mes_filtro != "Todos":
+        contas_usuario = [c for c in contas_usuario if c[6] == mes_filtro]
+        
+    df_contas = pd.DataFrame(contas_usuario, columns=["ID", "Nome", "Valor", "Parcela Num", "Parcela Total", "Dia", "Mês", "Status"])
+    if not df_contas.empty:
+        df_contas["Tipo"] = "conta"
+        df_contas_concat = df_contas[["ID", "Nome", "Valor", "Mês", "Tipo", "Status"]]
+        df_exibir = pd.concat([df_gastos, df_contas_concat], ignore_index=True)
+    else:
+        df_exibir = df_gastos
 
     df_exibir = df_exibir.sort_values(by="Valor", ascending=False)
 
@@ -427,11 +443,26 @@ with aba2:
 
         for _, row in df_exibir.iterrows():
             c1, c2, c3, c4 = st.columns([4, 2, 2, 1])
+            tipo = row.get("Tipo", "gasto")
+            status = row.get("Status", "pago")
+            
+            if tipo == "conta":
+                if status == "pendente":
+                    cor_valor = "#FFD700"  # Amarelo (Conta parcelada pendente)
+                else:
+                    cor_valor = "#3B82F6"  # Azul (Conta parcelada paga)
+            else:
+                cor_valor = "#FF4B4B"      # Vermelho (Gasto normal/fixo)
+                
             c1.markdown(f"<span style='color:#F0F2F6;font-weight:500;'>{row['Nome']}</span>", unsafe_allow_html=True)
             c2.markdown(f"<span style='color:#7A7F9A;font-size:0.9rem;'>{row['Mês']}</span>", unsafe_allow_html=True)
-            c3.markdown(f"<span style='color:#00C896;font-weight:600;'>R$ {row['Valor']:,.2f}</span>", unsafe_allow_html=True)
-            if c4.button("🗑️", key=f"del_gasto_{row['ID']}", help=f"Excluir '{row['Nome']}'"):
-                excluir_gasto(row["ID"])
+            c3.markdown(f"<span style='color:{cor_valor};font-weight:600;'>R$ {row['Valor']:,.2f}</span>", unsafe_allow_html=True)
+            
+            if c4.button("🗑️", key=f"del_{tipo}_{row['ID']}", help=f"Excluir '{row['Nome']}'"):
+                if tipo == "gasto":
+                    excluir_gasto(row["ID"])
+                else:
+                    excluir_conta_a_vencer(row["ID"])
                 st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
