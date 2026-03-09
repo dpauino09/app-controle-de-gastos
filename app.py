@@ -530,7 +530,7 @@ with aba2:
         df_gastos = df.copy()
     else:
         dados_filtrados = listar_gastos_por_mes(mes_filtro, usuario)
-        df_gastos = pd.DataFrame(dados_filtrados, columns=["ID", "Nome", "Valor", "Mês"])
+        df_gastos = pd.DataFrame(dados_filtrados, columns=["ID", "Nome", "Valor", "Mês", "Categoria"])
         
     df_gastos["Tipo"] = "gasto"
     df_gastos["Status"] = "pago"
@@ -540,10 +540,10 @@ with aba2:
     if mes_filtro != "Todos":
         contas_usuario = [c for c in contas_usuario if c[6] == mes_filtro]
         
-    df_contas = pd.DataFrame(contas_usuario, columns=["ID", "Nome", "Valor", "Parcela Num", "Parcela Total", "Dia", "Mês", "Status"])
+    df_contas = pd.DataFrame(contas_usuario, columns=["ID", "Nome", "Valor", "Parcela Num", "Parcela Total", "Dia", "Mês", "Status", "Categoria"])
     if not df_contas.empty:
         df_contas["Tipo"] = "conta"
-        df_contas_concat = df_contas[["ID", "Nome", "Valor", "Mês", "Tipo", "Status"]]
+        df_contas_concat = df_contas[["ID", "Nome", "Valor", "Mês", "Tipo", "Status", "Categoria"]]
         df_exibir = pd.concat([df_gastos, df_contas_concat], ignore_index=True)
     else:
         df_exibir = df_gastos
