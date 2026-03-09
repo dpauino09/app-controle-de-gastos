@@ -475,6 +475,21 @@ with aba1:
                 adicionar_gasto_recorrente(nome, valor, meses, mes_inicial, usuario, categoria_rec)
                 st.success(f"✅ Gasto recorrente '{nome}' registrado para {int(meses)} meses a partir de {mes_inicial}!")
 
+# ✏️ Definição do Modal de Edição de Gasto
+@st.dialog("Editar Gasto")
+def modal_editar_gasto(gasto_id, nome_atual, valor_atual, mes_atual, categoria_atual):
+    st.markdown(f"Editando: **{nome_atual}**")
+    novo_nome = st.text_input("Nome", value=nome_atual)
+    novo_valor = st.number_input("Valor (R$)", min_value=0.0, value=float(valor_atual), format="%.2f")
+    nova_categoria = st.selectbox("Categoria", CATEGORIAS_GASTOS, index=CATEGORIAS_GASTOS.index(categoria_atual) if categoria_atual in CATEGORIAS_GASTOS else CATEGORIAS_GASTOS.index("Outros"))
+    novo_mes = st.selectbox("Mês", [m for m in df["Mês"].unique()] + [mes_atual] if mes_atual not in df["Mês"].unique() else df["Mês"].unique(), index=list(df["Mês"].unique()).index(mes_atual) if mes_atual in df["Mês"].unique() else 0)
+    
+    if st.button("💾 Salvar Alterações", type="primary"):
+        from database import atualizar_gasto
+        atualizar_gasto(gasto_id, novo_nome, novo_valor, novo_mes, nova_categoria)
+        st.success("Gasto atualizado!")
+        st.rerun()
+
 # 📊 Aba de Visualização
 with aba2:
     st.markdown('<p class="section-title">🔎 Filtrar gastos por mês</p>', unsafe_allow_html=True)
@@ -544,7 +559,7 @@ with aba2:
         st.markdown("<hr style='border-color:#2C3050;margin:4px 0 6px 0;'>", unsafe_allow_html=True)
 
         for _, row in df_exibir.iterrows():
-            c1, c2, c3, c4 = st.columns([4, 2, 2, 1])
+            c1, c2, c3, c4, c5 = st.columns([3, 2, 2, 1, 1])
             tipo = row.get("Tipo", "gasto")
             status = row.get("Status", "pago")
             
@@ -560,7 +575,15 @@ with aba2:
             c2.markdown(f"<span style='color:#7A7F9A;font-size:0.9rem;'>{row['Mês']}</span>", unsafe_allow_html=True)
             c3.markdown(f"<span style='color:{cor_valor};font-weight:600;'>R$ {row['Valor']:,.2f}</span>", unsafe_allow_html=True)
             
-            if c4.button("🗑️", key=f"del_{tipo}_{row['ID']}", help=f"Excluir '{row['Nome']}'"):
+            # Botão de Editar (apenas para gastos normais por enquanto)
+            if tipo == "gasto":
+                if c4.button("✏️", key=f"edit_{tipo}_{row['ID']}", help="Editar Gasto"):
+                    modal_editar_gasto(row['ID'], row['Nome'], row['Valor'], row['Mês'], row.get('Categoria', 'Outros'))
+            else:
+                c4.markdown("") # Placeholder vazio para manter o layout
+                
+            # Botão de Excluir
+            if c5.button("🗑️", key=f"del_{tipo}_{row['ID']}", help=f"Excluir '{row['Nome']}'"):
                 if tipo == "gasto":
                     excluir_gasto(row["ID"])
                 else:
@@ -1000,34 +1023,32 @@ with aba3:
 
             parcela_txt = f"Parcela {parc_num}/{parc_total}" if parc_total > 1 else "À vista"
 
-            st.markdown(f"""
-            <div style="background:#1A1D2E; border:1px solid {border}; border-radius:14px;
-                        padding:14px 20px; margin-bottom:10px;
-                        display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                <div style="font-weight:700; font-size:1rem; color:#F0F2F6;">{descricao}</div>
-                <div style="font-size:0.8rem; color:#7A7F9A; margin-top:2px;">
-                    {parcela_txt} &nbsp;·&nbsp; Vence dia <b>{dia}</b> de {mes_v}
-                </div>
-              </div>
-              <div style="text-align:right;">
-                <div style="font-size:1.3rem; font-weight:700; color:#F0F2F6;">R$ {valor:,.2f}</div>
-                <div style="margin-top:4px;">{badge}</div>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            col_pag, col_del = st.columns([1, 1])
-            with col_pag:
-                novo_status = "pendente" if status == "pago" else "pago"
-                label_btn   = "↩️ Marcar como pendente" if status == "pago" else "✅ Marcar como pago"
-                if st.button(label_btn, key=f"pag_{cid}", use_container_width=True):
-                    marcar_conta_status(cid, novo_status)
-                    st.rerun()
-            with col_del:
-                if st.button("🗑️ Excluir", key=f"del_{cid}", use_container_width=True):
+            b1, b2, b3 = st.columns([6, 2, 1])
+            with b1:
+                st.markdown(f"""
+                <div style="background:#1A1D2E; border-left:4px solid {border}; border-radius:8px; padding:12px 16px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <div style="font-weight:600; color:#F0F2F6; font-size:1.05rem; margin-bottom:4px;">{descricao}</div>
+                    <div style="color:#7A7F9A; font-size:0.85rem;"><i class="fa-regular fa-calendar" style="margin-right:4px;"></i>Vence dia <b style="color:#C0C4D6;">{dia:02d}</b> &bull; {mes_v}</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="color:{border}; font-weight:700; font-size:1.15rem; margin-bottom:4px;">R$ {valor:,.2f}</div>
+                    {badge}
+                  </div>
+                </div>""", unsafe_allow_html=True)
+                
+            with b2:
+                if status == "pendente":
+                    if st.button("✅ Pago", key=f"pay_conta_{cid}", help="Marcar como Pago", use_container_width=True):
+                        marcar_conta_status(cid, "pago")
+                        st.rerun()
+                elif status == "pago":
+                    if st.button("⏳ Pendente", key=f"pend_conta_{cid}", help="Desfazer e marcar como Pendente", use_container_width=True):
+                        marcar_conta_status(cid, "pendente")
+                        st.rerun()
+            with b3:
+                if st.button("🗑️", key=f"del_conta_{cid}", help="Excluir Parcela", use_container_width=True):
                     excluir_conta_a_vencer(cid)
-                    st.success("Conta excluída.")
                     st.rerun()
 
 # �🛠️ Aba de Configurações
