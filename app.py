@@ -401,18 +401,41 @@ with aba_dash:
             )
             # Ocultando textos pequenos na pizza para ficar clean
             fig_pie.update_traces(textposition='inside', textinfo='percent')
-            # Capturar clique no gráfico
-            event = st.plotly_chart(fig_pie, use_container_width=True, on_select="rerun", selection_mode="points")
             
-            # Exibir detalhes da categoria clicada
-            if event and "selection" in event and "points" in event["selection"] and len(event["selection"]["points"]) > 0:
-                cat_selecionada = event["selection"]["points"][0]["label"]
+            # Capturar clique no gráfico
+            event = st.plotly_chart(fig_pie, use_container_width=True, on_select="rerun")
+            
+            cat_selecionada = None
+            
+            if event:
+                try:
+                    # Tenta ler do padrão de dicionário
+                    if isinstance(event, dict) and event.get("selection", {}).get("points"):
+                        pt = event["selection"]["points"][0]
+                        cat_selecionada = pt.get("label") or pt.get("x") or pt.get("pointIndex")
+                    # Tenta ler do padrão de objeto
+                    elif hasattr(event, "selection") and getattr(event.selection, "points", []):
+                        pt = event.selection.points[0]
+                        if isinstance(pt, dict):
+                            cat_selecionada = pt.get("label") or pt.get("x") or pt.get("pointIndex")
+                        else:
+                            cat_selecionada = getattr(pt, "label", getattr(pt, "x", getattr(pt, "pointIndex", None)))
+                except Exception as e:
+                    pass
+
+            # Caso retorne o ID numeral da fatia em vez do nome da categoria
+            if isinstance(cat_selecionada, int) and 0 <= cat_selecionada < len(df_pizza):
+                cat_selecionada = df_pizza.iloc[cat_selecionada]["Categoria"]
+
+            if cat_selecionada:
                 st.markdown(f'<p class="section-title" style="font-size:0.9rem; margin-top:10px;">📄 Detalhes: {cat_selecionada}</p>', unsafe_allow_html=True)
                 
-                df_detalhes = df_mes_atual[df_mes_atual["Categoria"] == cat_selecionada]
+                df_detalhes = df_mes_atual[df_mes_atual["Categoria"] == cat_selecionada].copy()
                 if not df_detalhes.empty:
+                    if "Descrição" in df_detalhes.columns:
+                        df_detalhes["Nome"] = df_detalhes.apply(lambda r: r["Descrição"] if pd.isna(r.get("Nome")) else r["Nome"], axis=1)
                     st.dataframe(
-                        df_detalhes[["Nome", "Valor", "Mês" if "Mês" in df_detalhes.columns else "Descrição"]],
+                        df_detalhes[["Nome", "Valor", "Mês"]],
                         hide_index=True,
                         use_container_width=True,
                         column_config={
@@ -421,6 +444,9 @@ with aba_dash:
                     )
                 else:
                     st.info("ℹ️ Nenhum detalhe encontrado para esta categoria.")
+            elif event and (isinstance(event, dict) and event.get("selection", {}).get("points") or hasattr(event, "selection") and getattr(event.selection, "points", [])):
+                # Fallback Debug se ele clicou mas não entendeu a categoria
+                st.warning(f"O clique foi detectado, mas a categoria não pôde ser lida. Estrutura do erro: {event}")
         else:
             st.info("ℹ️ Nenhum gasto registrado neste mês para gerar o gráfico.")
 
