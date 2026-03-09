@@ -401,7 +401,26 @@ with aba_dash:
             )
             # Ocultando textos pequenos na pizza para ficar clean
             fig_pie.update_traces(textposition='inside', textinfo='percent')
-            st.plotly_chart(fig_pie, use_container_width=True)
+            # Capturar clique no gráfico
+            event = st.plotly_chart(fig_pie, use_container_width=True, on_select="rerun", selection_mode="points")
+            
+            # Exibir detalhes da categoria clicada
+            if event and "selection" in event and "points" in event["selection"] and len(event["selection"]["points"]) > 0:
+                cat_selecionada = event["selection"]["points"][0]["label"]
+                st.markdown(f'<p class="section-title" style="font-size:0.9rem; margin-top:10px;">📄 Detalhes: {cat_selecionada}</p>', unsafe_allow_html=True)
+                
+                df_detalhes = df_mes_atual[df_mes_atual["Categoria"] == cat_selecionada]
+                if not df_detalhes.empty:
+                    st.dataframe(
+                        df_detalhes[["Nome", "Valor", "Mês" if "Mês" in df_detalhes.columns else "Descrição"]],
+                        hide_index=True,
+                        use_container_width=True,
+                        column_config={
+                            "Valor": st.column_config.NumberColumn("Valor", format="R$ %.2f")
+                        }
+                    )
+                else:
+                    st.info("ℹ️ Nenhum detalhe encontrado para esta categoria.")
         else:
             st.info("ℹ️ Nenhum gasto registrado neste mês para gerar o gráfico.")
 
